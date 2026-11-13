@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>場次報名｜ERos 羽球團</title>
+<style>
+* { box-sizing: border-box }
+body { margin: 0; background: #f8f2e7; color: #173c30; font: 1rem/1.65 system-ui, sans-serif }
+main { max-width: 42rem; margin: auto; padding: 2rem 1rem }
+section { padding: clamp(1.25rem, 5vw, 2.5rem); background: #fffdf8; border: 1px solid #ded8ca; border-radius: 1.5rem }
+h1 { font-size: clamp(2rem, 7vw, 3.5rem); line-height: 1.1; margin: .5em 0 }
+a { color: inherit }
+img { width: 5rem; height: 5rem; object-fit: contain; float: right }
+button { font: inherit; font-weight: 700; color: #fff; background: #215442; border: 0; border-radius: .8rem; padding: .7rem 1rem; cursor: pointer }
+button:disabled { opacity: .6; cursor: default }
+#cancel { background: #87482a }
+#status { min-height: 1.65em }
+</style>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+<script src="/registration.js" defer></script>
+</head>
+<body>
+<main>
+<p><a href="/">← ERos 羽球團首頁</a></p>
+<section>
+<img src="/duck_head.png" alt="">
+<h1>場次報名</h1>
+<p id="session"></p>
+<p id="capacity"></p>
+<p id="status" role="status">正在載入報名資料…</p>
+<button id="login" hidden>使用 LINE 登入</button>
+<button id="join" hidden>報名這一場</button>
+<button id="cancel" hidden>取消報名</button>
+</section>
+<p><a href="/rules.html">查看活動規範</a></p>
+</main>
+</body>
+</html>

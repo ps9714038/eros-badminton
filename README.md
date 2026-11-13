@@ -58,3 +58,25 @@ python scripts/add_photos.py "你的照片資料夾" --album "球場日常"
 新增照片 → 加入資料庫 → 驗證 → commit/push 到 GitHub 同一儲存庫 → GitHub Pages 沿用固定網址更新內容。
 
 **不要使用「重新建一個儲存庫」來更新網站，也不要清空 `photos/` 和 `data/photos.json`。**
+
+## 報名功能設定
+
+1. 在 Cloudflare 建立 D1，透過 D1 Console 或 Wrangler 執行根目錄的 registration.sql。把資料庫綁定至 Pages 專案，變數名稱為 REGISTRATION_DB。
+2. 在 Pages 設定 LIFF_ID 和 LINE_LOGIN_CHANNEL_ID。既有 LIFF 需啟用 openid scope，Endpoint URL 須涵蓋 /registration.html。若既有 LIFF 的 Endpoint 只涵蓋其他頁面，可在同一個 LINE Login Channel 新增專用 LIFF，Endpoint 指向 /registration.html。
+3. 在既有 ERos 官方帳號啟用 Messaging API，選擇 LINE Login 所在的 Provider。將 LINE_CHANNEL_SECRET 和 LINE_CHANNEL_ACCESS_TOKEN 設為 Pages Secrets。部署後，將 Webhook 設為網站網址加上 /api/line-webhook 並驗證。
+4. 開啟「允許機器人加入群組」，邀請官方帳號進群組，並在 Pages 設定 LINE_GROUP_ID（LINE Webhook 的 source.groupId）。更新設定後重新部署。群組只處理指定群組的 +1、-1、報名狀態。
+5. 團長在 D1 新增已確認的場次與成員資料。starts_at 使用 Unix 秒數，請在建立場次時明確輸入 +08:00 時區。系統選擇最近一場尚未開始的場次，is_open 可暫停新增報名。固定成員 role 為 regular，經 Ro 核准的朋友為 guest。固定成員先報名，Ro 確認有空位後，才在 guest_registration_open 新增該場次 id。這版沒有管理介面，資料由團長在 D1 管理。
+6. 用同一個 LINE 帳號測試：群組傳 +1 → 開網頁查看已報名 → 網頁取消 → 群組輸入「報名狀態」核對名額。額滿時直接回覆額滿。LINE 群組的回覆全群可見。
+
+### 第一次開放報名
+
+- 團長和團員可私訊官方帳號「我的報名識別碼」，將識別碼交給團長。團長將自己的識別碼設為 Pages 變數 LINE_ADMIN_USER_ID 後重新部署，再在目標群組傳「報名群組設定」取得 LINE_GROUP_ID。
+- D1 操作示例（換成實際已確認的場次時間和團員識別碼）：
+
+```sql
+INSERT INTO sessions (starts_at, location)
+VALUES (unixepoch('2026-11-15 20:00:00+08:00'), '竹北 Y-POWER');
+INSERT INTO members (user_id, role) VALUES ('U替換為團員識別碼', 'regular');
+-- 團長確認可開放朋友名額後執行，將 1 換成實際場次 id。
+INSERT INTO guest_registration_open (session_id) VALUES (1);
+```
