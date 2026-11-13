@@ -30,8 +30,11 @@ function render(data) {
     byId("user-id").textContent = data.user
     byId("management").hidden = !data.admin
   }
-  byId("create").hidden = Boolean(session)
-  byId("controls").hidden = !session
+  const active = Boolean(session && !session.cancelled)
+  byId("cancel-session").hidden = !active
+  if (data.admin) byId("retry-notice").hidden = !data.retryNotice
+  byId("create").hidden = active
+  byId("controls").hidden = !active
   byId("toggle-open").textContent = session?.is_open ? "暫停報名" : "恢復報名"
   byId('session').textContent = session
     ? date.format(session.starts_at * 1000) + '・' + session.location
@@ -39,7 +42,7 @@ function render(data) {
   byId('capacity').textContent = session
     ? '已報名 ' + session.booked + '／7 人，剩 ' + (7 - session.booked) + ' 位'
     : ''
-  feedback.textContent = data.message || (session && !session.is_open ? '這場目前暫停報名。' : '')
+  feedback.textContent = session?.cancelled ? "場次已取消。" : data.message || (session && !session.is_open ? '這場目前暫停報名。' : '')
   join.hidden = !token || !session?.is_open || session.joined ||
     session.booked >= 7
   cancel.hidden = !token || !session?.joined
@@ -84,8 +87,9 @@ async function manage(action, fields) {
   const message = byId('manage-status')
   buttons.forEach(button => { button.disabled = true })
   try {
-    render(await api(action, { manage: true, ...fields }))
-    message.textContent = '場次設定已更新。'
+    const data = await api(action, { manage: true, ...fields })
+    render(data)
+    message.textContent = data.notification || '場次設定已更新。'
   } catch (error) {
     message.textContent = error.message
   } finally {
@@ -101,5 +105,11 @@ byId('create').onsubmit = event => {
   manage('create', { start: byId('starts').value, location: byId('location').value })
 }
 byId('toggle-open').onclick = () => manage(session.is_open ? 'pause' : 'resume')
+
+byId('cancel-session').onclick = () => {
+  const reason = prompt('取消 ' + date.format(session.starts_at * 1000) + ' 的場次？目前有 ' + session.booked + ' 人報名。可填寫取消原因。')
+  if (reason !== null) manage('cancel', { reason })
+}
+byId('retry-notice').onclick = () => manage('retry-notice')
 
 start().catch(error => { feedback.textContent = error.message })

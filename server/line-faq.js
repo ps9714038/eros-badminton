@@ -19,6 +19,7 @@ export function describeSession(session) {
   const date = new Intl.DateTimeFormat('zh-TW', {
     timeZone: 'Asia/Taipei', dateStyle: 'full', timeStyle: 'short'
   }).format(session.starts_at * 1000)
+  if (session.cancelled) return date + '・' + session.location + ' 的場次已取消。'
   const label = !session.is_open ? '暫停報名' : session.booked >= 7 ? '報名已額滿' : '報名開放中'
   const group = session.booked >= 5 ? '已達 5 人開團門檻' : '尚未達 5 人開團門檻'
   return `${date}・${session.location}\n${label}，已報名 ${session.booked}／7 人，剩 ${7 - session.booked} 位。\n${group}。\n${link}`

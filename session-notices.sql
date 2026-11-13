@@ -1,0 +1,9 @@
+ALTER TABLE sessions ADD COLUMN cancelled INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS session_notices (
+  id TEXT PRIMARY KEY,
+  session_id INTEGER NOT NULL REFERENCES sessions(id),
+  kind TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT '',
+  sent INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(session_id, kind)
+);

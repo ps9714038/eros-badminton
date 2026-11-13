@@ -1,3 +1,4 @@
+import { latestNotice, sendNotice } from '../../server/session-notices.js'
 import { manageSession } from '../../server/manage-session.js'
 import { change, describe, status } from '../../server/registration.js'
 
@@ -28,14 +29,19 @@ export async function onRequest({ request, env }) {
     const admin = user === env.LINE_ADMIN_USER_ID
     if (request.method === 'GET') {
       const session = await status(env.REGISTRATION_DB, user)
-      return json({ session, admin, user, message: describe(session) })
+      const notice = admin ? await latestNotice(env.REGISTRATION_DB) : null
+      return json({ session, admin, user, retryNotice: Boolean(notice && !notice.sent), message: describe(session) })
     }
     const input = await request.json().catch(() => null)
     if (input?.manage === true) {
       if (!admin) return json({ message: '只有團長可以管理場次。' }, 403)
-      const error = await manageSession(env.REGISTRATION_DB, input)
+      const error = input.action === 'retry-notice' ? null : await manageSession(env.REGISTRATION_DB, input)
       if (error) return json({ message: error }, 409)
-      return json({ session: await status(env.REGISTRATION_DB, user), admin, user })
+      const notice = await latestNotice(env.REGISTRATION_DB)
+      const notification = ['create', 'cancel', 'retry-notice'].includes(input.action)
+        ? await sendNotice(env, notice) : ''
+      return json({ session: await status(env.REGISTRATION_DB, user), admin, user, notification,
+        retryNotice: Boolean(notice && !notice.sent && !notification.includes('已送出')) })
     }
     if (!Number.isSafeInteger(input?.sessionId) || !['+1', '-1'].includes(input.action)) {
       return json({ message: '報名指令格式有誤。' }, 400)
