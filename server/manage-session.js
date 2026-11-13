@@ -11,9 +11,9 @@ export async function manageSession(db, input) {
       SELECT ?, ?, 1 WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE starts_at > unixepoch() AND cancelled = 0)
     `).bind(start / 1000, location), db.prepare(`
       INSERT INTO session_notices (id, session_id, kind)
-      SELECT ?, id, 'create' FROM sessions WHERE starts_at = ? AND changes() = 1
+      SELECT ?, id, 'create' FROM sessions WHERE starts_at = ? AND cancelled = 0 AND changes() = 1
     `).bind(crypto.randomUUID(), start / 1000)])
-    return result.meta.changes ? null : '已有未開始的場次，或此開打時間已使用。'
+    return result.meta.changes ? null : '已有未取消且未開始的場次。'
   }
   if (!Number.isSafeInteger(input?.sessionId)) return '請選擇場次。'
   if (input.action === 'cancel') {
