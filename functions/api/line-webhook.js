@@ -1,3 +1,4 @@
+import { describeSession, findTopic } from '../../server/line-faq.js'
 import { change, describe, status } from '../../server/registration.js'
 
 export async function onRequestPost({ request, env, waitUntil }) {
@@ -30,7 +31,9 @@ async function handleEvents(events, env) {
       action === '報名群組設定'
     if (!identify && !groupSetup && source.type !== 'user' &&
         !(source.type === 'group' && source.groupId === env.LINE_GROUP_ID)) continue
-    if (!identify && !groupSetup && !['+1', '-1', '報名狀態'].includes(action)) continue
+    const topic = findTopic(action)
+    const changesRegistration = ['+1', '-1'].includes(action)
+    if (!identify && !groupSetup && !changesRegistration && !topic) continue
 
     let text
     try {
@@ -38,14 +41,18 @@ async function handleEvents(events, env) {
         text = '你的報名識別碼：' + source.userId + '。請只提供給團長 Ro。'
       } else if (groupSetup) {
         text = '報名群組識別碼：' + source.groupId
+      } else if (topic && !['session', 'personal'].includes(topic)) {
+        text = topic
       } else {
         const db = env.REGISTRATION_DB
         const session = await status(db, source.userId)
-        const result = session && action !== '報名狀態'
+        const result = session && changesRegistration
           ? await change(db, session.id, source.userId, action, webhookEventId)
           : { session }
         if (!result) continue
-        text = describe(result.session, action, result.changed)
+        text = topic === 'session'
+          ? describeSession(result.session)
+          : describe(result.session, action, result.changed)
       }
     } catch {
       text = '目前無法取得報名資料，請稍後再試。'
