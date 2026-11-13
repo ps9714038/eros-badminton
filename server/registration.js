@@ -14,7 +14,7 @@ export async function change(db, sessionId, user, action, eventId = null) {
     'INSERT OR IGNORE INTO webhook_events (id) VALUES (?)'
   ).bind(eventId)
   const guard = event ? ' AND changes() = 1' : ''
-  const adding = action !== '-1'
+  const adding = action === '+1' || action === '+2'
   const seats = action === '+2' ? 2 : 1
   const mutation = adding
     ? db.prepare(`
@@ -32,8 +32,13 @@ export async function change(db, sessionId, user, action, eventId = null) {
       `).bind(sessionId, user, seats)
     : db.prepare(`
         DELETE FROM registrations WHERE session_id = ?1 AND user_id IN (?2, ?2 || ':friend')
+        AND user_id IN (
+          SELECT user_id FROM registrations
+          WHERE session_id = ?1 AND user_id IN (?2, ?2 || ':friend')
+          ORDER BY user_id DESC LIMIT CASE WHEN ?3 = '-2' THEN 2 ELSE 1 END
+        )
         AND EXISTS (SELECT 1 FROM sessions WHERE id = ?1 AND starts_at > unixepoch())${guard}
-      `).bind(sessionId, user)
+      `).bind(sessionId, user, action)
   // Keep the existing foreign key valid for first-time participants.
   const statements = adding ? [db.prepare(`
     INSERT OR IGNORE INTO members (user_id, role)
@@ -68,9 +73,9 @@ export function describe(session, action, changed = false) {
     : '你和一位朋友已報名。' + count
   if (action === '+2' && !session.is_open) return '這場目前暫停報名。'
   if (action === '+2') return '剩餘名額不足，無法完成雙人報名。' + count
-  if (action === '-1' && changed) return '取消成功！' + count
+  if ((action === '-1' || action === '-2') && changed) return '取消成功！' + count
   if (session.joined) return `你已報名。${count}`
-  if (action === '-1') return `你目前沒有報名。${count}`
+  if (action === '-1' || action === '-2') return `你目前沒有報名。${count}`
   if (action === '+1' && !session.is_open) return '這場目前暫停報名。'
   if (action === '+1' && session.booked >= 7) return `目前額滿。${count}`
   return `你尚未報名。${count}`

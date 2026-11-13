@@ -37,7 +37,7 @@ async function handleEvents(events, env) {
     if (!identify && !groupSetup && source.type !== 'user' &&
         !(source.type === 'group' && source.groupId === await notificationGroup(env))) continue
     const topic = findTopic(action)
-    const changesRegistration = ['+1', '+2', '-1'].includes(action)
+    const changesRegistration = ['+1', '+2', '-1', '-2'].includes(action)
     if (!identify && !groupSetup && !changesRegistration && !topic) continue
 
     let text
