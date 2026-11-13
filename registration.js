@@ -51,7 +51,10 @@ async function start() {
   render(data)
   const openLine = byId("open-line")
   openLine.href = "https://liff.line.me/" + data.liffId
-  await liff.init({ liffId: data.liffId })
+  await liff.init({
+    liffId: data.liffId,
+    withLoginOnExternalBrowser: /\bLine\//i.test(navigator.userAgent)
+  })
   openLine.hidden = liff.isInClient() || liff.isLoggedIn()
   if (!liff.isLoggedIn()) {
     login.hidden = false
