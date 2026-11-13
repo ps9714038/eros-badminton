@@ -30,18 +30,21 @@ export async function change(db, sessionId, user, action, eventId = null) {
         DELETE FROM registrations WHERE session_id = ?1 AND user_id = ?2
         AND EXISTS (SELECT 1 FROM sessions WHERE id = ?1 AND starts_at > unixepoch())${guard}
       `).bind(sessionId, user)
+  let changes
   if (event) {
-    const [receipt] = await db.batch([event, mutation])
+    const [receipt, result] = await db.batch([event, mutation])
     if (!receipt.meta.changes) return null
+    changes = result.meta.changes
   } else {
-    await mutation.run()
+    changes = (await mutation.run()).meta.changes
   }
-  return { session: await status(db, user, sessionId) }
+  return { session: await status(db, user, sessionId), changed: changes > 0 }
 }
 
-export function describe(session, action) {
+export function describe(session, action, changed = false) {
   if (!session) return '目前沒有可報名的場次。'
   const count = `目前 ${session.booked}／7 人，剩 ${7 - session.booked} 位。`
+  if (action === '+1' && changed && session.joined) return `報名成功！${count}`
   if (session.joined) return `你已報名。${count}`
   if (action === '-1') return `你目前沒有報名。${count}`
   if (!session.role) return '請先聯絡團長 Ro 開通報名資格。'
@@ -50,4 +53,3 @@ export function describe(session, action) {
   if (session.role === 'guest' && !session.guests_open) return '朋友名額請先向團長 Ro 確認。'
   return `你尚未報名。${count}`
 }
-

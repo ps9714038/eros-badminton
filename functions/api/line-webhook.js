@@ -45,7 +45,7 @@ async function handleEvents(events, env) {
           ? await change(db, session.id, source.userId, action, webhookEventId)
           : { session }
         if (!result) continue
-        text = describe(result.session, action)
+        text = describe(result.session, action, result.changed)
       }
     } catch {
       text = '目前無法取得報名資料，請稍後再試。'
@@ -62,5 +62,3 @@ async function handleEvents(events, env) {
     }
   }
 }
-
-
