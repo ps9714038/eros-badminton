@@ -1,3 +1,4 @@
+import { notificationGroup, recordGroup } from '../../server/notification-groups.js'
 import { describeSession, findTopic } from '../../server/line-faq.js'
 import { change, describe, status } from '../../server/registration.js'
 
@@ -24,13 +25,17 @@ export async function onRequestPost({ request, env, waitUntil }) {
 async function handleEvents(events, env) {
   for (const event of events) {
     const { source, message, replyToken, webhookEventId } = event
+    if (source?.type === 'group' && ['join', 'leave'].includes(event.type)) {
+      await recordGroup(env, source.groupId, event.type === 'join')
+      continue
+    }
     if (event.type !== 'message' || message.type !== 'text' || !source.userId || !replyToken) continue
     const action = message.text.trim()
     const identify = source.type === 'user' && action === '我的報名識別碼'
     const groupSetup = source.type === 'group' && source.userId === env.LINE_ADMIN_USER_ID &&
       action === '報名群組設定'
     if (!identify && !groupSetup && source.type !== 'user' &&
-        !(source.type === 'group' && source.groupId === env.LINE_GROUP_ID)) continue
+        !(source.type === 'group' && source.groupId === await notificationGroup(env))) continue
     const topic = findTopic(action)
     const changesRegistration = ['+1', '-1'].includes(action)
     if (!identify && !groupSetup && !changesRegistration && !topic) continue

@@ -1,3 +1,4 @@
+import { groupOptions, selectGroup } from '../../server/notification-groups.js'
 import { latestNotice, sendNotice } from '../../server/session-notices.js'
 import { manageSession } from '../../server/manage-session.js'
 import { change, describe, status } from '../../server/registration.js'
@@ -27,6 +28,10 @@ export async function onRequest({ request, env }) {
     const { sub: user } = await response.json()
     if (!user) return json({}, 401)
     const admin = user === env.LINE_ADMIN_USER_ID
+    if (request.method === 'GET' && new URL(request.url).searchParams.has('groups')) {
+      if (!admin) return json({}, 403)
+      return json({ groups: await groupOptions(env) })
+    }
     if (request.method === 'GET') {
       const session = await status(env.REGISTRATION_DB, user)
       const notice = admin ? await latestNotice(env.REGISTRATION_DB) : null
@@ -35,6 +40,11 @@ export async function onRequest({ request, env }) {
     const input = await request.json().catch(() => null)
     if (input?.manage === true) {
       if (!admin) return json({ message: '只有團長可以管理場次。' }, 403)
+      if (input.action === 'select-group') {
+        return await selectGroup(env, input.groupId)
+          ? json({ message: '通知群組已儲存。' })
+          : json({ message: '找不到這個群組，請重新整理。' }, 409)
+      }
       const error = input.action === 'retry-notice' ? null : await manageSession(env.REGISTRATION_DB, input)
       if (error) return json({ message: error }, 409)
       const notice = await latestNotice(env.REGISTRATION_DB)

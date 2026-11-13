@@ -1,3 +1,4 @@
+import { notificationGroup } from './notification-groups.js'
 export async function latestNotice(db) {
   return db.prepare(`
     SELECT n.*, s.starts_at, s.location, s.cancelled FROM session_notices n
@@ -8,7 +9,8 @@ export async function latestNotice(db) {
 
 export async function sendNotice(env, notice) {
   if (!notice || notice.sent) return notice?.sent ? 'LINE 群組通知已送出。' : ''
-  if (!env.LINE_GROUP_ID || !env.LINE_CHANNEL_ACCESS_TOKEN) return '場次已儲存，請先設定 LINE 通知群組，再重送通知。'
+  const groupId = await notificationGroup(env)
+  if (!groupId || !env.LINE_CHANNEL_ACCESS_TOKEN) return '場次已儲存，請先設定 LINE 通知群組，再重送通知。'
   const date = new Intl.DateTimeFormat('zh-TW', {
     timeZone: 'Asia/Taipei', dateStyle: 'full', timeStyle: 'short'
   }).format(notice.starts_at * 1000)
@@ -24,7 +26,7 @@ export async function sendNotice(env, notice) {
         'Content-Type': 'application/json',
         'X-Line-Retry-Key': notice.id
       },
-      body: JSON.stringify({ to: env.LINE_GROUP_ID, messages: [{ type: 'text', text }] }),
+      body: JSON.stringify({ to: groupId, messages: [{ type: 'text', text }] }),
       signal: AbortSignal.timeout(5000)
     })
     if (reply.ok || (reply.status === 409 && reply.headers.has('x-line-accepted-request-id'))) {

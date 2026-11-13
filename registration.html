@@ -42,6 +42,11 @@ input { font: inherit; color: inherit; padding: .55rem; border: 1px solid #9bada
 </section>
 <section id="management" hidden>
 <h2>場次管理</h2>
+<form id="group-form">
+<label>LINE 通知群組<select id="notification-group" required></select></label>
+<button id="save-group" disabled>儲存通知群組</button>
+<p id="group-status" role="status"></p>
+</form>
 <form id="create">
 <label>開打時間（台灣時間）<input id="starts" type="datetime-local" required></label>
 <label>球場<input id="location" value="竹北 Y-POWER" maxlength="100" required></label>

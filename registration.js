@@ -9,7 +9,7 @@ const date = new Intl.DateTimeFormat('zh-TW', {
 let token
 let session
 
-async function api(action, fields = {}) {
+async function api(action, fields = {}, query = '') {
   const headers = token ? { Authorization: 'Bearer ' + token } : {}
   const options = { headers }
   if (action) {
@@ -17,7 +17,7 @@ async function api(action, fields = {}) {
     headers['Content-Type'] = 'application/json'
     options.body = JSON.stringify({ action, sessionId: session?.id, ...fields })
   }
-  const response = await fetch('/api/registration', options)
+  const response = await fetch('/api/registration' + query, options)
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(data.message || '目前無法使用報名功能，請稍後再試。')
   return data
@@ -64,7 +64,9 @@ async function start() {
   }
   token = liff.getIDToken()
   if (!token) throw new Error('LINE 登入缺少身分權限，請聯絡團長 Ro。')
-  render(await api())
+  const account = await api()
+  render(account)
+  if (account.admin) loadGroups()
 }
 
 async function submit(action) {
@@ -113,3 +115,35 @@ byId('cancel-session').onclick = () => {
 byId('retry-notice').onclick = () => manage('retry-notice')
 
 start().catch(error => { feedback.textContent = error.message })
+
+async function loadGroups() {
+  const select = byId('notification-group')
+  const message = byId('group-status')
+  try {
+    const { groups } = await api(null, {}, '?groups')
+    const placeholder = new Option('選擇通知群組', '')
+    select.replaceChildren(placeholder)
+    for (const group of groups) {
+      select.add(new Option(group.name, group.id, false, Boolean(group.selected)))
+    }
+    byId('save-group').disabled = !groups.length
+    if (!groups.length) message.textContent = '請邀請 ERos 加入群組，再重新開啟此頁。'
+  } catch {
+    message.textContent = '目前無法載入 LINE 群組。'
+  }
+}
+
+byId('group-form').onsubmit = async event => {
+  event.preventDefault()
+  const button = byId('save-group')
+  const message = byId('group-status')
+  button.disabled = true
+  try {
+    const result = await api('select-group', { manage: true, groupId: byId('notification-group').value })
+    message.textContent = result.message
+  } catch (error) {
+    message.textContent = error.message
+  } finally {
+    button.disabled = false
+  }
+}
