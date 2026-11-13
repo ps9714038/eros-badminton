@@ -57,6 +57,12 @@ async function start() {
     liffId: data.liffId,
     withLoginOnExternalBrowser: /\bLine\//i.test(navigator.userAgent)
   })
+  const view = new URLSearchParams(location.search).get('view')
+  const pages = new Map([['intro', '/#intro'], ['rules', '/rules'], ['gallery', '/#gallery']])
+  if (pages.has(view)) {
+    location.replace(pages.get(view))
+    return
+  }
   openLine.hidden = liff.isInClient() || liff.isLoggedIn()
   if (!liff.isLoggedIn()) {
     login.hidden = false
