@@ -1,3 +1,4 @@
+import { manageSession } from '../../server/manage-session.js'
 import { change, describe, status } from '../../server/registration.js'
 
 const json = (data, status = 200) => Response.json(data, {
@@ -24,11 +25,18 @@ export async function onRequest({ request, env }) {
     if (!response.ok) return json({ message: 'LINE 登入已失效，請重新登入。' }, 401)
     const { sub: user } = await response.json()
     if (!user) return json({}, 401)
+    const admin = user === env.LINE_ADMIN_USER_ID
     if (request.method === 'GET') {
       const session = await status(env.REGISTRATION_DB, user)
-      return json({ session, message: describe(session) })
+      return json({ session, admin, user, message: describe(session) })
     }
     const input = await request.json().catch(() => null)
+    if (input?.manage === true) {
+      if (!admin) return json({ message: '只有團長可以管理場次。' }, 403)
+      const error = await manageSession(env.REGISTRATION_DB, input)
+      if (error) return json({ message: error }, 409)
+      return json({ session: await status(env.REGISTRATION_DB, user), admin, user })
+    }
     if (!Number.isSafeInteger(input?.sessionId) || !['+1', '-1'].includes(input.action)) {
       return json({ message: '報名指令格式有誤。' }, 400)
     }
@@ -38,4 +46,3 @@ export async function onRequest({ request, env }) {
     return json({ message: '目前無法取得報名資料，請稍後再試。' }, 503)
   }
 }
-
