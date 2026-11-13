@@ -33,7 +33,6 @@ function render(data) {
   byId("create").hidden = Boolean(session)
   byId("controls").hidden = !session
   byId("toggle-open").textContent = session?.is_open ? "暫停報名" : "恢復報名"
-  byId("toggle-guests").textContent = session?.guests_open ? "關閉朋友名額" : "開放朋友名額"
   byId('session').textContent = session
     ? date.format(session.starts_at * 1000) + '・' + session.location
     : '目前沒有可報名的場次。'
@@ -41,8 +40,8 @@ function render(data) {
     ? '已報名 ' + session.booked + '／7 人，剩 ' + (7 - session.booked) + ' 位'
     : ''
   feedback.textContent = data.message || (session && !session.is_open ? '這場目前暫停報名。' : '')
-  join.hidden = !token || !session?.is_open || !session.role || session.joined ||
-    session.booked >= 7 || (session.role === 'guest' && !session.guests_open)
+  join.hidden = !token || !session?.is_open || session.joined ||
+    session.booked >= 7
   cancel.hidden = !token || !session?.joined
 }
 
@@ -102,6 +101,5 @@ byId('create').onsubmit = event => {
   manage('create', { start: byId('starts').value, location: byId('location').value })
 }
 byId('toggle-open').onclick = () => manage(session.is_open ? 'pause' : 'resume')
-byId('toggle-guests').onclick = () => manage(session.guests_open ? 'close-guests' : 'guests')
 
 start().catch(error => { feedback.textContent = error.message })

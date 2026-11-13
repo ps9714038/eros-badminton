@@ -1,10 +1,8 @@
 export async function status(db, user = '', sessionId = null) {
   return db.prepare(`
     SELECT id, starts_at, location, is_open,
-      EXISTS(SELECT 1 FROM guest_registration_open WHERE session_id = sessions.id) AS guests_open,
       (SELECT count(*) FROM registrations WHERE session_id = sessions.id) AS booked,
-      EXISTS(SELECT 1 FROM registrations WHERE session_id = sessions.id AND user_id = ?1) AS joined,
-      (SELECT role FROM members WHERE user_id = ?1) AS role
+      EXISTS(SELECT 1 FROM registrations WHERE session_id = sessions.id AND user_id = ?1) AS joined
     FROM sessions WHERE starts_at > unixepoch() AND (?2 IS NULL OR id = ?2)
     ORDER BY starts_at LIMIT 1
   `).bind(user, sessionId).first()
@@ -18,22 +16,29 @@ export async function change(db, sessionId, user, action, eventId = null) {
   const mutation = action === '+1'
     ? db.prepare(`
         INSERT OR IGNORE INTO registrations (session_id, user_id)
-        SELECT s.id, m.user_id FROM sessions s CROSS JOIN members m
-        WHERE s.id = ?1 AND m.user_id = ?2 AND s.is_open = 1
+        SELECT s.id, ?2 FROM sessions s
+        WHERE s.id = ?1 AND s.is_open = 1
         AND s.starts_at > unixepoch()
-        AND (m.role = 'regular' OR s.id IN (
-          SELECT session_id FROM guest_registration_open
-        ))
         AND (SELECT count(*) FROM registrations WHERE session_id = s.id) < 7${guard}
       `).bind(sessionId, user)
     : db.prepare(`
         DELETE FROM registrations WHERE session_id = ?1 AND user_id = ?2
         AND EXISTS (SELECT 1 FROM sessions WHERE id = ?1 AND starts_at > unixepoch())${guard}
       `).bind(sessionId, user)
+  // Keep the existing foreign key valid for first-time participants.
+  const statements = action === '+1' ? [db.prepare(`
+    INSERT OR IGNORE INTO members (user_id, role)
+    SELECT ?2, 'guest' FROM sessions
+    WHERE id = ?1 AND is_open = 1 AND starts_at > unixepoch()
+    AND (SELECT count(*) FROM registrations WHERE session_id = ?1) < 7
+  `).bind(sessionId, user)] : []
   let changes
   if (event) {
-    const [receipt, result] = await db.batch([event, mutation])
+    const [receipt, result] = (await db.batch([...statements, event, mutation])).slice(-2)
     if (!receipt.meta.changes) return null
+    changes = result.meta.changes
+  } else if (statements.length) {
+    const [, result] = await db.batch([...statements, mutation])
     changes = result.meta.changes
   } else {
     changes = (await mutation.run()).meta.changes
@@ -47,9 +52,7 @@ export function describe(session, action, changed = false) {
   if (action === '+1' && changed && session.joined) return `報名成功！${count}`
   if (session.joined) return `你已報名。${count}`
   if (action === '-1') return `你目前沒有報名。${count}`
-  if (!session.role) return '請先聯絡團長 Ro 開通報名資格。'
   if (action === '+1' && !session.is_open) return '這場目前暫停報名。'
   if (action === '+1' && session.booked >= 7) return `目前額滿。${count}`
-  if (session.role === 'guest' && !session.guests_open) return '朋友名額請先向團長 Ro 確認。'
   return `你尚未報名。${count}`
 }
